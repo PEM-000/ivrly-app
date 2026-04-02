@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
@@ -30,7 +30,7 @@ const LANGUAGES = [
 ]
 
 type Property = { id: string; name: string; primary_language: string | null }
-type Room = { id: string; internal_name: string; guest_facing_name: string | null; room_number: string | null; short_name: string | null }
+type Room = { id: string; internal_name: string; guest_facing_name: string | null; room_number: string | null }
 type Template = 'showcase' | 'checkin'
 
 export default function SendPage() {
@@ -48,7 +48,6 @@ export default function SendPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
-  const [showSignOutModal, setShowSignOutModal] = useState(false)
 
   useEffect(() => { loadProperties() }, [])
   useEffect(() => { if (propertyId) loadRooms(propertyId) }, [propertyId])
@@ -74,7 +73,7 @@ export default function SendPage() {
     setRoomId('')
     const { data } = await supabase
       .from('rooms')
-      .select('id, internal_name, guest_facing_name, room_number, short_name')
+      .select('id, internal_name, guest_facing_name, room_number')
       .eq('property_id', pid)
       .order('room_number')
     setRooms(data || [])
@@ -85,12 +84,6 @@ export default function SendPage() {
     setPropertyId(pid)
     const prop = properties.find(p => p.id === pid)
     if (prop) setLanguage(prop.primary_language || 'en')
-  }
-
-  function roomLabel(r: Room) {
-    const num = r.room_number ? `Rm ${r.room_number}` : null
-    const name = r.short_name || r.guest_facing_name || r.internal_name
-    return num ? `${num} · ${name}` : name
   }
 
   async function handleSend() {
@@ -150,39 +143,10 @@ export default function SendPage() {
 
   return (
     <div style={styles.page}>
-
-      {/* Sign out confirmation modal */}
-      {showSignOutModal && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modal}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: '#111827', margin: '0 0 10px' }}>
-              Sign out?
-            </h2>
-            <p style={{ fontSize: 14, color: '#6B7280', margin: '0 0 24px', lineHeight: 1.5 }}>
-              You will need to use your magic link email to sign back in.
-            </p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setShowSignOutModal(false)}
-                style={styles.cancelBtn}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSignOut}
-                style={styles.signOutConfirmBtn}
-              >
-                Sign out
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <div style={styles.header}>
         <div style={styles.logoMark}>A</div>
-        <button onClick={() => setShowSignOutModal(true)} style={styles.signOutBtn}>Sign out</button>
+        <button onClick={handleSignOut} style={styles.signOutBtn}>Sign out</button>
       </div>
 
       {/* Form */}
@@ -230,7 +194,7 @@ export default function SendPage() {
               <select value={roomId} onChange={e => setRoomId(e.target.value)} style={styles.select}>
                 {rooms.map(r => (
                   <option key={r.id} value={r.id}>
-                    {roomLabel(r)}
+                    {r.room_number ? `Room ${r.room_number} — ` : ''}{r.guest_facing_name || r.internal_name}
                   </option>
                 ))}
               </select>
@@ -404,40 +368,5 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '50%',
     animation: 'spin 0.8s linear infinite',
   },
-  modalOverlay: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0,0,0,0.4)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
-  modal: {
-    background: '#fff',
-    borderRadius: 16,
-    padding: 32,
-    maxWidth: 320,
-    width: '90%',
-    boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
-  },
-  cancelBtn: {
-    padding: '10px 20px',
-    fontSize: 14,
-    color: '#6B7280',
-    background: 'transparent',
-    border: '1px solid #E5E7EB',
-    borderRadius: 10,
-    cursor: 'pointer',
-  },
-  signOutConfirmBtn: {
-    padding: '10px 20px',
-    fontSize: 14,
-    fontWeight: 600,
-    color: '#fff',
-    background: '#DC2626',
-    border: 'none',
-    borderRadius: 10,
-    cursor: 'pointer',
-  },
 }
+
