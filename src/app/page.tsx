@@ -32,6 +32,7 @@ const LANGUAGES = [
 type Property = { id: string; name: string; primary_language: string | null }
 type Room = { id: string; internal_name: string; guest_facing_name: string | null; room_number: string | null; short_name: string | null }
 type Template = 'showcase' | 'checkin'
+type ConsentType = 'requested' | 'safety' | ''
 
 export default function SendPage() {
   const router = useRouter()
@@ -48,6 +49,7 @@ export default function SendPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
+  const [consentType, setConsentType] = useState<ConsentType>('')
   const [showSignOutModal, setShowSignOutModal] = useState(false)
 
   useEffect(() => { loadProperties() }, [])
@@ -98,12 +100,13 @@ export default function SendPage() {
     if (!propertyId) { setError('Select a property.'); return }
     if (!roomId) { setError('Select a room.'); return }
     if (!phone.trim()) { setError('Enter a phone number.'); return }
+    if (!consentType) { setError('Please confirm the reason for sending.'); return }
     setSending(true)
     try {
       const res = await fetch('/api/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ template, propertyId, roomId, language, phone: phone.trim(), userId }),
+        body: JSON.stringify({ template, propertyId, roomId, language, phone: phone.trim(), userId, consentType }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Send failed')
@@ -120,6 +123,7 @@ export default function SendPage() {
     setSent(false)
     setPhone('')
     setError('')
+    setConsentType('')
   }
 
   async function handleSignOut() {
@@ -258,12 +262,52 @@ export default function SendPage() {
           <p style={styles.hint}>Include country code — e.g. +1 US, +44 UK, +48 Poland</p>
         </div>
 
+        {/* Consent */}
+        <div style={styles.field}>
+          <label style={styles.label}>Reason for sending</label>
+          <div style={styles.consentBox}>
+            <label style={styles.consentOption}>
+              <input
+                type="radio"
+                name="consentType"
+                value="requested"
+                checked={consentType === 'requested'}
+                onChange={() => setConsentType('requested')}
+                style={styles.radio}
+              />
+              <div>
+                <span style={styles.consentTitle}>Guest requested this message</span>
+                <span style={styles.consentDesc}>The guest contacted the property and specifically asked to receive this information via SMS.</span>
+              </div>
+            </label>
+            <div style={styles.consentDivider} />
+            <label style={styles.consentOption}>
+              <input
+                type="radio"
+                name="consentType"
+                value="safety"
+                checked={consentType === 'safety'}
+                onChange={() => setConsentType('safety')}
+                style={styles.radio}
+              />
+              <div>
+                <span style={styles.consentTitle}>Safety or facility notification</span>
+                <span style={styles.consentDesc}>Notifying the guest of a safety or facility issue affecting their stay (e.g. power outage, heating failure, loss of water).</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
         {error && <div style={styles.errorBox}>{error}</div>}
 
         <button
           onClick={handleSend}
-          disabled={sending}
-          style={{ ...styles.primaryBtn, background: sending ? '#A5B4FC' : '#4F46E5', cursor: sending ? 'not-allowed' : 'pointer' }}
+          disabled={sending || !consentType}
+          style={{
+            ...styles.primaryBtn,
+            background: sending ? '#A5B4FC' : !consentType ? '#D1D5DB' : '#4F46E5',
+            cursor: (sending || !consentType) ? 'not-allowed' : 'pointer',
+          }}
         >
           {sending ? 'Sending…' : 'Send guest link →'}
         </button>
@@ -369,6 +413,41 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     color: '#9CA3AF',
     margin: '6px 0 0',
+  },
+  consentBox: {
+    border: '1.5px solid #E5E7EB',
+    borderRadius: 10,
+    background: '#fff',
+    overflow: 'hidden',
+  },
+  consentOption: {
+    display: 'flex',
+    gap: 12,
+    alignItems: 'flex-start',
+    padding: '14px 16px',
+    cursor: 'pointer',
+  },
+  consentDivider: {
+    height: 1,
+    background: '#E5E7EB',
+  },
+  consentTitle: {
+    display: 'block',
+    fontSize: 14,
+    fontWeight: 600,
+    color: '#111827',
+    marginBottom: 3,
+  },
+  consentDesc: {
+    display: 'block',
+    fontSize: 12,
+    color: '#6B7280',
+    lineHeight: 1.5,
+  },
+  radio: {
+    marginTop: 2,
+    accentColor: '#4F46E5',
+    flexShrink: 0,
   },
   primaryBtn: {
     width: '100%',
