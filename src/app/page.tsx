@@ -32,7 +32,7 @@ const LANGUAGES = [
 type Property = { id: string; name: string; primary_language: string | null }
 type Room = { id: string; internal_name: string; guest_facing_name: string | null; room_number: string | null; short_name: string | null }
 type Template = 'showcase' | 'checkin'
-type ConsentType = 'requested' | ''
+type ConsentType = boolean
 
 export default function SendPage() {
   const router = useRouter()
@@ -49,7 +49,7 @@ export default function SendPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
-  const [consentType, setConsentType] = useState<ConsentType>('')
+  const [consentType, setConsentType] = useState<ConsentType>(false)
   const [showSignOutModal, setShowSignOutModal] = useState(false)
 
   useEffect(() => { loadProperties() }, [])
@@ -100,7 +100,7 @@ export default function SendPage() {
     if (!propertyId) { setError('Select a property.'); return }
     if (!roomId) { setError('Select a room.'); return }
     if (!phone.trim()) { setError('Enter a phone number.'); return }
-    if (!consentType) { setError('Please confirm the reason for sending.'); return }
+    if (!consentType) { setError('Please confirm the guest requested this message.'); return }
     setSending(true)
     try {
       const res = await fetch('/api/send', {
@@ -123,7 +123,7 @@ export default function SendPage() {
     setSent(false)
     setPhone('')
     setError('')
-    setConsentType('')
+    setConsentType(false)
   }
 
   async function handleSignOut() {
@@ -268,11 +268,11 @@ export default function SendPage() {
           <div style={styles.consentBox}>
             <label style={styles.consentOption}>
               <input
-                type="radio"
+                type="checkbox"
                 name="consentType"
                 value="requested"
-                checked={consentType === 'requested'}
-                onChange={() => setConsentType('requested')}
+                checked={consentType}
+                onChange={e => setConsentType(e.target.checked)}
                 style={styles.radio}
               />
               <div>
