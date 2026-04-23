@@ -32,7 +32,7 @@ const LANGUAGES = [
 type Property = { id: string; name: string; primary_language: string | null }
 type Room = { id: string; internal_name: string; guest_facing_name: string | null; room_number: string | null; short_name: string | null }
 type Template = 'showcase' | 'checkin'
-type ConsentType = 'requested' | 'safety' | ''
+type ConsentType = 'requested' | ''
 
 export default function SendPage() {
   const router = useRouter()
@@ -280,21 +280,7 @@ export default function SendPage() {
                 <span style={styles.consentDesc}>The guest contacted the property and specifically asked to receive this information via SMS.</span>
               </div>
             </label>
-            <div style={styles.consentDivider} />
-            <label style={styles.consentOption}>
-              <input
-                type="radio"
-                name="consentType"
-                value="safety"
-                checked={consentType === 'safety'}
-                onChange={() => setConsentType('safety')}
-                style={styles.radio}
-              />
-              <div>
-                <span style={styles.consentTitle}>Safety or facility notification</span>
-                <span style={styles.consentDesc}>Notifying the guest of a safety or facility issue affecting their stay (e.g. power outage, heating failure, loss of water).</span>
-              </div>
-            </label>
+
           </div>
         </div>
 
