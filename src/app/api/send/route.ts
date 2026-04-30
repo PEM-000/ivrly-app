@@ -8,64 +8,106 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const { template, propertyId, roomId, language, phone } = await req.json()
+    const { template, propertyId, roomId, language, phone, email, sendVia } = await req.json()
 
-    if (!phone || phone.trim().length < 7) {
-      return NextResponse.json({ error: 'A valid phone number is required.' }, { status: 400 })
-    }
-    if (!propertyId) {
-      return NextResponse.json({ error: 'Property is required.' }, { status: 400 })
-    }
-    if (!roomId) {
-      return NextResponse.json({ error: 'Room is required.' }, { status: 400 })
-    }
+    if (!propertyId) return NextResponse.json({ error: 'Property is required.' }, { status: 400 })
+    if (!roomId) return NextResponse.json({ error: 'Room is required.' }, { status: 400 })
 
-    // Look up existing token for this room/template
-    const { data: tokenRow } = await supabase
-      .from('send_log')
-      .select('token')
-      .eq('room_id', roomId)
-      .eq('template', template)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-
-    let token: string
-    if (!tokenRow) {
-      token = crypto.randomUUID()
+    if (sendVia === 'email') {
+      if (!email || !email.includes('@')) {
+        return NextResponse.json({ error: 'A valid email address is required.' }, { status: 400 })
+      }
     } else {
-      token = tokenRow.token
+      if (!phone || phone.trim().length < 7) {
+        return NextResponse.json({ error: 'A valid phone number is required.' }, { status: 400 })
+      }
     }
 
-    // Log this send
+    // Build guest page token and URL
+    const pageToken = crypto.randomUUID()
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.ivrly.com'
+    const guestUrl = `${appUrl}/g/${pageToken}?lang=${language}`
+
+    // Log to send_log
     await supabase.from('send_log').insert({
       property_id: propertyId,
       room_id: roomId,
-      template,
+      template_type: template,
       language,
-      phone: phone.trim(),
-      token,
+      guest_phone: sendVia === 'sms' ? phone?.trim() : null,
+      guest_email: sendVia === 'email' ? email?.trim() : null,
+      page_token: pageToken,
+      page_url: guestUrl,
+      delivery_status: 'pending',
     })
 
-    // Format phone to E.164
+    // ── Email send ─────────────────────────────────────────────────────────
+    if (sendVia === 'email') {
+      const isCheckin = template === 'checkin'
+      const subject = isCheckin ? 'Your check-in instructions are ready' : 'Your room information is ready'
+      const heading = subject
+
+      const emailHtml = `
+        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px;">
+          <div style="margin-bottom: 24px;">
+            <span style="font-size: 18px; font-weight: 700; color: #111827;">Arrivio</span>
+          </div>
+          <h1 style="font-size: 22px; font-weight: 700; color: #111827; margin: 0 0 12px;">${heading}</h1>
+          <p style="font-size: 15px; color: #6B7280; margin: 0 0 28px; line-height: 1.6;">
+            Your host has prepared everything you need. Click the button below to view your personalised guest page.
+          </p>
+          <a href="${guestUrl}" style="display: inline-block; background: #4F46E5; color: #fff; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-size: 15px; font-weight: 600;">
+            View your guest page →
+          </a>
+          <p style="font-size: 13px; color: #9CA3AF; margin-top: 32px;">
+            Or copy this link: <a href="${guestUrl}" style="color: #4F46E5;">${guestUrl}</a>
+          </p>
+          <hr style="border: none; border-top: 1px solid #E5E7EB; margin: 32px 0;" />
+          <p style="font-size: 12px; color: #9CA3AF; margin: 0;">Sent via Arrivio by Ivrly</p>
+        </div>
+      `
+
+      const resendRes = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'Arrivio <hello@mail.ivrly.com>',
+          to: [email.trim()],
+          subject,
+          html: emailHtml,
+        }),
+      })
+
+      if (!resendRes.ok) {
+        const err = await resendRes.json()
+        console.error('Resend error:', err)
+        return NextResponse.json({ error: `Email failed: ${err.message || 'Unknown error'}` }, { status: 500 })
+      }
+
+      await supabase.from('send_log')
+        .update({ delivery_status: 'sent' })
+        .eq('page_token', pageToken)
+
+      return NextResponse.json({ success: true, token: pageToken, guestUrl })
+    }
+
+    // ── SMS send ───────────────────────────────────────────────────────────
     let formattedPhone = phone.trim().replace(/[\s\-\(\)]/g, '')
     if (!formattedPhone.startsWith('+')) formattedPhone = '+' + formattedPhone
 
-    // Build guest page URL
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bnbinfo.vercel.app'
-    const guestUrl = `${appUrl}/g/${token}?lang=${language}`
-
-    // Build SMS body
-    const templateLabel = template === 'checkin' ? 'check-in instructions' : 'room information'
+    const isCheckin = template === 'checkin'
+    const templateLabel = isCheckin ? 'check-in instructions' : 'room information'
     const smsBody = [
       `Your ${templateLabel} are ready:`,
       ``,
       guestUrl,
       ``,
-      `Reply STOP to opt out.`,
+      `Reply STOP to opt out. Msg & data rates may apply.`,
     ].join('\n')
 
-    // Send via Twilio
     const twilioSid   = process.env.TWILIO_ACCOUNT_SID!
     const twilioToken = process.env.TWILIO_AUTH_TOKEN!
     const twilioFrom  = process.env.TWILIO_PHONE_NUMBER!
@@ -87,7 +129,6 @@ export async function POST(req: NextRequest) {
     )
 
     const twilioData = await twilioRes.json()
-
     if (!twilioRes.ok || twilioData.error_code) {
       console.error('Twilio error:', twilioData)
       return NextResponse.json({
@@ -95,14 +136,11 @@ export async function POST(req: NextRequest) {
       }, { status: 500 })
     }
 
-    // Update send_log with Twilio SID
     await supabase.from('send_log')
-      .update({ twilio_sid: twilioData.sid, sent_at: new Date().toISOString() })
-      .eq('token', token)
-      .order('created_at', { ascending: false })
-      .limit(1)
+      .update({ delivery_status: 'sent' })
+      .eq('page_token', pageToken)
 
-    return NextResponse.json({ success: true, token, guestUrl })
+    return NextResponse.json({ success: true, token: pageToken, guestUrl })
 
   } catch (err) {
     console.error('Send error:', err)
