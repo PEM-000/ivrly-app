@@ -24,9 +24,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Build guest page token and URL
+    // Guest pages always live on owner.ivrly.com (bnbinfo), not app.ivrly.com
     const pageToken = crypto.randomUUID()
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.ivrly.com'
-    const guestUrl = `${appUrl}/g/${pageToken}?lang=${language}`
+    const guestUrl = `https://owner.ivrly.com/g/${pageToken}?lang=${language}`
 
     // Log to send_log
     await supabase.from('send_log').insert({
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       delivery_status: 'pending',
     })
 
-    // ── Email send ─────────────────────────────────────────────────────────
+    // ── Email send ────────────────────────────────────────────────────────
     if (sendVia === 'email') {
       const isCheckin = template === 'checkin'
       const subject = isCheckin ? 'Your check-in instructions are ready' : 'Your room information is ready'
@@ -94,14 +94,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, token: pageToken, guestUrl })
     }
 
-    // ── SMS send ───────────────────────────────────────────────────────────
+    // ── SMS send ──────────────────────────────────────────────────────────
     let formattedPhone = phone.trim().replace(/[\s\-\(\)]/g, '')
     if (!formattedPhone.startsWith('+')) formattedPhone = '+' + formattedPhone
 
     const isCheckin = template === 'checkin'
-    const templateLabel = isCheckin ? 'check-in instructions' : 'room information'
+    const smsIntro = isCheckin
+      ? 'Your check-in instructions are ready:'
+      : 'Your room information is ready:'
+
     const smsBody = [
-      `Your ${templateLabel} are ready:`,
+      smsIntro,
       ``,
       guestUrl,
       ``,
