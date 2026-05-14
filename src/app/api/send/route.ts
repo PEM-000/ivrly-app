@@ -98,10 +98,28 @@ export async function POST(req: NextRequest) {
     let formattedPhone = phone.trim().replace(/[\s\-\(\)]/g, '')
     if (!formattedPhone.startsWith('+')) formattedPhone = '+' + formattedPhone
 
+    const SMS_INTROS: Record<string, {showcase: string; checkin: string}> = {
+      en: { showcase: 'Your room information is ready:',           checkin: 'Your check-in instructions are ready:' },
+      pl: { showcase: 'Twoje informacje o pokoju są gotowe:',      checkin: 'Twoje instrukcje zameldowania są gotowe:' },
+      de: { showcase: 'Ihre Zimmerinformationen sind bereit:',     checkin: 'Ihre Check-in-Anweisungen sind bereit:' },
+      fr: { showcase: 'Vos informations sur la chambre sont prêtes :', checkin: 'Vos instructions d\'enregistrement sont prêtes :' },
+      es: { showcase: 'La información de su habitación está lista:', checkin: 'Sus instrucciones de check-in están listas:' },
+      it: { showcase: 'Le informazioni sulla sua camera sono pronte:', checkin: 'Le istruzioni per il check-in sono pronte:' },
+      pt: { showcase: 'As informações do seu quarto estão prontas:', checkin: 'As suas instruções de check-in estão prontas:' },
+      nl: { showcase: 'Uw kamerinformatie is gereed:',              checkin: 'Uw check-ininstructies zijn gereed:' },
+      cs: { showcase: 'Informace o vašem pokoji jsou připraveny:',  checkin: 'Vaše pokyny pro check-in jsou připraveny:' },
+      sk: { showcase: 'Informácie o vašej izbe sú pripravené:',    checkin: 'Vaše pokyny na check-in sú pripravené:' },
+      hu: { showcase: 'Szobájával kapcsolatos információk készen állnak:', checkin: 'Check-in utasítások készen állnak:' },
+      ro: { showcase: 'Informațiile despre cameră sunt pregătite:', checkin: 'Instrucțiunile de check-in sunt pregătite:' },
+      hr: { showcase: 'Informacije o vašoj sobi su spremne:',       checkin: 'Upute za prijavu su spremne:' },
+      sv: { showcase: 'Din rumsinformation är redo:',               checkin: 'Dina incheckningsinstruktioner är redo:' },
+      no: { showcase: 'Din romsinformasjon er klar:',               checkin: 'Dine innsjekkingsinstruksjoner er klare:' },
+      da: { showcase: 'Din værelsesinformation er klar:',           checkin: 'Dine check-in-instruktioner er klar:' },
+      fi: { showcase: 'Huoneesi tiedot ovat valmiit:',              checkin: 'Sisäänkirjautumisohjeet ovat valmiit:' },
+      tr: { showcase: 'Oda bilgileriniz hazır:',                    checkin: 'Check-in talimatlarınız hazır:' },
+    }
     const isCheckin = template === 'checkin'
-    const smsIntro = isCheckin
-      ? 'Your check-in instructions are ready:'
-      : 'Your room information is ready:'
+    const smsIntro = (SMS_INTROS[language] ?? SMS_INTROS['en'])[isCheckin ? 'checkin' : 'showcase']
 
     const smsBody = [
       smsIntro,
