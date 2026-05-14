@@ -217,7 +217,7 @@ export default function SendPage() {
           <div style={styles.modal}>
             <h2 style={{ fontSize: 18, fontWeight: 700, color: '#111827', margin: '0 0 10px' }}>Sign out?</h2>
             <p style={{ fontSize: 14, color: '#6B7280', margin: '0 0 24px', lineHeight: 1.5 }}>
-              You will need to use your magic link email to sign back in.
+              You'll need your phone number to sign back in — we'll send you a 6-digit code.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setShowSignOutModal(false)} style={styles.cancelBtn}>Cancel</button>
