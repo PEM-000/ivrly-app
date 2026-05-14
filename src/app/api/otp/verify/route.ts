@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     // Generate a server-side magic link token — client exchanges it for a session
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
-      email: user.email,
+      email: email,
     })
 
     if (linkError || !linkData?.properties?.hashed_token) {
