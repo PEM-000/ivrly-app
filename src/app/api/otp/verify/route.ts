@@ -16,40 +16,25 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Invalid request.' }, { status: 400 })
     }
 
-    // Find valid, unused, non-expired OTP
-    const { data: otp } = await supabaseAdmin
-      .from('otp_codes')
-      .select('id, user_id')
-      .eq('phone_number', normalizedPhone)
-      .eq('code', normalizedCode)
-      .is('used_at', null)
-      .gt('expires_at', new Date().toISOString())
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
+    const { data: rows } = await supabaseAdmin.rpc('verify_and_use_otp', {
+      p_phone: normalizedPhone,
+      p_code: normalizedCode,
+    })
 
-    if (!otp) {
+    if (!rows || rows.length === 0) {
       return Response.json({ error: 'Invalid or expired code. Please try again.' }, { status: 401 })
     }
 
-    // Mark OTP as used immediately
-    await supabaseAdmin
-      .from('otp_codes')
-      .update({ used_at: new Date().toISOString() })
-      .eq('id', otp.id)
+    const { otp_user_id } = rows[0]
 
-    // Get user email (needed for generateLink)
-    const { data: user } = await supabaseAdmin
-      .from('users')
-      .select('email')
-      .eq('id', otp.user_id)
-      .single()
+    const { data: email } = await supabaseAdmin.rpc('get_auth_user_email', {
+      p_user_id: otp_user_id,
+    })
 
-    if (!user?.email) {
+    if (!email) {
       return Response.json({ error: 'Account not found.' }, { status: 404 })
     }
 
-    // Generate a server-side magic link token — client exchanges it for a session
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
       email: email,
