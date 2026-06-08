@@ -1,6 +1,9 @@
 'use client'
 // ============================================================
-// app/page.tsx — VERSION 2.0
+// app/page.tsx — VERSION 2.1
+// Changes v2.1: validate guest phone to E.164 (libphonenumber-js)
+//          before send; invalid numbers show the translated
+//          country-code hint instead of failing at Twilio.
 // Changes v2.0: Full owner UI i18n. Detects owner language
 //          from public.users.default_language, falls back to
 //          browser language, then English. All Send screen
@@ -10,6 +13,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
+import { parsePhoneNumberFromString } from 'libphonenumber-js'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -920,7 +924,11 @@ export default function SendPage() {
     if (!propertyId) { setError(t('selectProperty')); return }
     if (!roomId) { setError(t('selectRoom')); return }
     if (!consent) { setError(t('confirmConsent')); return }
-    if (sendVia === 'sms' && !phone.trim()) { setError(t('enterPhone')); return }
+    if (sendVia === 'sms') {
+      if (!phone.trim()) { setError(t('enterPhone')); return }
+      const parsedPhone = parsePhoneNumberFromString(phone.trim())
+      if (!parsedPhone || !parsedPhone.isValid()) { setError(t('phoneHint')); return }
+    }
     if (sendVia === 'email' && !email.trim()) { setError(t('enterEmail')); return }
 
     setSending(true)
