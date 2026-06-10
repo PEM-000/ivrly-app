@@ -1,6 +1,9 @@
 'use client'
 // ============================================================
-// app/page.tsx — VERSION 2.1
+// app/page.tsx — VERSION 2.2
+// Changes v2.2: catch 403 account_cancelled from /api/send and show a
+//          friendly "Welcome back / reactivate" screen instead of the
+//          raw error. Block copy hardcoded EN for now (i18n later).
 // Changes v2.1: validate guest phone to E.164 (libphonenumber-js)
 //          before send; invalid numbers show the translated
 //          country-code hint instead of failing at Twilio.
@@ -803,6 +806,7 @@ export default function SendPage() {
   const [sent, setSent] = useState(false)
   const [sentTo, setSentTo] = useState('')
   const [error, setError] = useState('')
+  const [blocked, setBlocked] = useState(false)
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [consent, setConsent] = useState(false)
@@ -945,6 +949,10 @@ export default function SendPage() {
         }),
       })
       const json = await res.json()
+      if (res.status === 403 && json?.error === 'account_cancelled') {
+        setBlocked(true)
+        return
+      }
       if (!res.ok) throw new Error(json.error || t('somethingWrong'))
       setSentTo(sendVia === 'sms' ? phone.trim() : email.trim())
       setSent(true)
@@ -972,6 +980,25 @@ export default function SendPage() {
   if (loading) return (
     <div style={styles.centered}>
       <div style={styles.spinner} />
+    </div>
+  )
+
+  if (blocked) return (
+    <div style={styles.centered}>
+      <div style={{ textAlign: 'center', padding: '0 32px' }}>
+        <div style={{ fontSize: 56, marginBottom: 20 }}>👋</div>
+        <h2 style={{ fontSize: 22, fontWeight: 700, color: '#111827', margin: '0 0 10px' }}>Welcome back!</h2>
+        <p style={{ color: '#6B7280', fontSize: 15, margin: '0 0 8px', lineHeight: 1.5 }}>
+          Your account is <strong style={{ color: '#111827' }}>cancelled</strong>, so sending is turned off.
+        </p>
+        <p style={{ color: '#6B7280', fontSize: 15, margin: '0 0 36px', lineHeight: 1.5 }}>
+          Reactivate to start sending guest links again.
+        </p>
+        <a href="https://owner.ivrly.com/owner/billing" style={{
+          display: 'inline-block', background: '#DC2626', color: '#fff', textDecoration: 'none',
+          borderRadius: 12, padding: '15px 28px', fontSize: 16, fontWeight: 600,
+        }}>Reactivate account</a>
+      </div>
     </div>
   )
 
